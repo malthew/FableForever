@@ -68,7 +68,9 @@ Automatic cues play once and then leave a quiet interlude (3 minutes by default;
 
 ## License
 
-No license has been assigned to the addon source yet. Unless a license is added, no permission to reuse or redistribute the source is granted. The audio recordings have separate rights and are not covered by the source code.
+The original addon source code in this repository is licensed under the [MIT License](LICENSE). This permissive license lets others use, modify, and redistribute the code, including in forks, as long as they retain the copyright and license notice.
+
+The MIT License applies only to the addon code identified as this project's original work. It does not cover the Fable soundtrack recordings, Blizzard or WoW assets, or any other third-party content. Those materials retain their respective rights, and the soundtrack MP3s are not included here.
 
 ## Support and contributions
 
