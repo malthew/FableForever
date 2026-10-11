@@ -3,7 +3,7 @@
 It turns out that the Xbox classic video game hit "Fable: The Lost Chapters" shares a lot of similarities with World of Warcraft, when it comes to music and ambiance. At least, that's what I've always felt ever since I started playing the WoW: Forever Beta.  
 For that reason, I've created this client-side music addon for **WoW: Forever**. This addon _intelligently_ chooses Fable soundtrack cues from the current zone's mood, fades between tracks, and can even play combat and quest-complete cues.
 
-> Unofficial fan project. It is not affiliated with or endorsed by the owners of World of Warcraft, WoW: Forever, or Fable.5
+> Unofficial fan project. It is not affiliated with or endorsed by Activision Blizzard, WoW: Forever, or Fable.
 
 ## Audio and distribution
 
