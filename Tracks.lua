@@ -34,9 +34,9 @@ ns.TrackCatalog = {
 }
 
 ns.QuestWinSoundFile = "Music Quest Win.mp3"
--- Duration reported by the bundled MP3's media metadata; used to keep the
--- zone soundtrack quiet for the full replacement quest-complete cue.
-ns.QuestWinSoundDuration = 8.34
+-- The main quest-win sound lasts about four seconds; the rest of the MP3 is
+-- mostly its reverb tail, so music can resume while that tail fades out.
+ns.QuestWinSoundDuration = 4
 
 -- Mood pools keep each cue with broad environment types. The two ending
 -- cues have single-track pools and are selected only in their assigned cities.
