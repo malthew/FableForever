@@ -37,9 +37,9 @@ If upgrading from the earlier **Fable OST** addon folder, remove `Interface\AddO
 
 ## Settings
 
-The settings window controls the zone music override, combat cues, quest-complete sound replacement, music level (0–150%), fade-out and fade-in durations, zone-change delay, and quiet time between automatic tracks. It also shows the current area, mood, and cue. **Next track** skips the quiet interlude while retaining the configured fade.
+The settings window controls the zone music override, combat cues, quest-complete sound replacement, music level (0–100%), fade-out and fade-in durations, zone-change delay, and quiet time between automatic tracks. It also shows the current area, mood, and cue. **Next track** skips the quiet interlude while retaining the configured fade.
 
-The addon uses WoW's Music volume setting to apply its level and fades. That slider follows the addon output while the override is active; the saved baseline is restored when the override is disabled or on logout. The addon does not change `Sound_EnableMusic`.
+The Fable music level controls WoW's `Sound_MusicVolume` value directly on a 0–100% scale. The add-on fades this value during transitions and restores the saved game value when the override is disabled or on logout. Changes to the Music slider in WoW's own settings also update the add-on level. The add-on does not change `Sound_EnableMusic`.
 
 Automatic cues play once and then leave a quiet interlude (3 minutes by default; configurable from 0 to 10 minutes). A mood change or combat can start a cue early. The replacement quest-complete cue is optional and off by default.
 
@@ -51,7 +51,7 @@ Automatic cues play once and then leave a quiet interlude (3 minutes by default;
 | `/fableforever on` / `off` | Enable or disable the zone music override |
 | `/fableforever status` | Show the current zone, mood, and cue |
 | `/fableforever next` | Start another cue for the current mood |
-| `/fableforever volume 0.85` | Set Fable music level relative to WoW's Music slider |
+| `/fableforever volume 85` | Set Fable music level to 85% |
 | `/fableforever fade 3` | Set both fade durations in seconds |
 | `/fableforever silence 3` | Set the quiet interlude in minutes (0–10) |
 | `/fableforever combat on` / `off` | Enable or disable battle cues |

@@ -101,14 +101,16 @@ end
 
 local function EnsureBaseVolume()
     if state.baseMusicVolume == nil then
-        state.baseMusicVolume = Clamp(GetCVarValue("Sound_MusicVolume") or 0.4, 0, 1)
+        local liveValue = tonumber(GetCVarValue("Sound_MusicVolume"))
+        state.baseMusicVolume = Clamp(liveValue or 0.4, 0, 1)
+        state.currentGain = state.baseMusicVolume
     end
 end
 
 local function ApplyEffectiveGain()
     EnsureBaseVolume()
     if state.baseMusicVolume == nil then return end
-    SetCVarValue("Sound_MusicVolume", state.baseMusicVolume * state.currentGain * state.questDuckGain)
+    SetCVarValue("Sound_MusicVolume", state.currentGain * state.questDuckGain)
 end
 
 local function ApplyGain(gain)
@@ -116,13 +118,11 @@ local function ApplyGain(gain)
     if state.baseMusicVolume == nil then
         return
     end
-    state.currentGain = Clamp(gain, 0, 1.5)
+    state.currentGain = Clamp(gain, 0, 1)
     ApplyEffectiveGain()
 end
 
 local function HandleMusicVolumeUpdate(value)
-    if state.baseMusicVolume == nil then return end
-
     -- CVAR_UPDATE can arrive after another fade step has already written a
     -- newer value. Read the live CVar so an older event cannot replace the
     -- saved game volume with one of the addon's temporary fade levels.
@@ -143,22 +143,35 @@ local function HandleMusicVolumeUpdate(value)
         return
     end
 
+    if state.baseMusicVolume == nil then
+        -- With the override off, the game's Music slider is authoritative.
+        FableForeverDB.volume = Clamp(liveValue, 0, 1)
+        if ns.RefreshVolumeControl then ns.RefreshVolumeControl() end
+        return
+    end
+
     local effectiveGain = state.currentGain * state.questDuckGain
-    local expectedValue = Clamp(state.baseMusicVolume * effectiveGain, 0, 1)
+    local expectedValue = Clamp(effectiveGain, 0, 1)
     if math.abs(liveValue - expectedValue) < 0.002 then
         return -- This update reflects the addon's current gain/fade.
     end
 
-    -- A real change from the game's Music slider should update the stored
-    -- baseline. The CVar reflects the effective level, so undo the current
-    -- addon multiplier before saving it. At zero gain, retain the slider's
-    -- requested value as the new baseline for the next fade-in.
-    if effectiveGain > 0.001 then
-        state.baseMusicVolume = Clamp(liveValue / effectiveGain, 0, 1)
-    else
-        state.baseMusicVolume = Clamp(liveValue, 0, 1)
+    -- A real change from the game's Music slider becomes both the Fable target
+    -- and the value restored when the override is disabled.
+    state.baseMusicVolume = Clamp(liveValue, 0, 1)
+    FableForeverDB.volume = state.baseMusicVolume
+    if state.questDuckGain > 0.001 then
+        state.currentGain = Clamp(liveValue / state.questDuckGain, 0, 1)
+    end
+    if state.fade then
+        local fade = state.fade
+        fade.from = state.currentGain
+        if fade.to > 0 then fade.to = FableForeverDB.volume end
+        fade.elapsed = 0
+        fade.updateElapsed = 0
     end
     ApplyGain(state.currentGain)
+    if ns.RefreshVolumeControl then ns.RefreshVolumeControl() end
 end
 
 local function TweenQuestDuck(target, duration)
@@ -230,7 +243,7 @@ end
 
 local function FadeTo(targetGain, duration, after)
     EnsureBaseVolume()
-    targetGain = Clamp(targetGain, 0, 1.5)
+    targetGain = Clamp(targetGain, 0, 1)
     duration = Clamp(duration, 0, 15)
 
     if duration <= 0 or math.abs(state.currentGain - targetGain) < 0.001 then
@@ -356,6 +369,11 @@ local function ScheduleNextTrack(trackID, generation)
                 end
                 -- Resolve the mood again after the quiet interlude so a zone
                 -- or combat change during silence selects the current cue.
+                -- Reassert the quiet endpoint as well: a CVar change while
+                -- silent can leave the remembered gain out of sync, causing
+                -- the next fade to believe it has already reached its target.
+                state.currentGain = 0
+                ApplyEffectiveGain()
                 RefreshMusic(true)
             end)
         end)
@@ -386,20 +404,17 @@ local function TransitionToTrack(mood, trackID)
         local fadeInDuration = FableForeverDB.fadeIn
         FadeTo(FableForeverDB.volume, fadeInDuration)
 
-        -- If a client CVAR event interrupts or desynchronizes the fade, make
-        -- sure the new cue does not remain stuck at the fade-out volume.
+        -- Reassert the completed fade target. CVAR_UPDATE can race with the
+        -- frame-driven fade and leave its remembered gain at an intermediate
+        -- value even when the client reports the latest CVar write.
         if C_Timer and C_Timer.After then
             C_Timer.After(fadeInDuration + 0.5, function()
                 if generation ~= state.playGeneration or not FableForeverDB.enabled
                     or state.trackID ~= trackID or state.baseMusicVolume == nil then
                     return
                 end
-                local expected = Clamp(state.baseMusicVolume * FableForeverDB.volume, 0, 1)
-                local actual = tonumber(GetCVarValue("Sound_MusicVolume"))
-                if actual ~= nil and math.abs(actual - expected) > 0.003 then
-                    StopFade()
-                    ApplyGain(FableForeverDB.volume)
-                end
+                StopFade()
+                ApplyGain(FableForeverDB.volume)
             end)
         end
     end)
@@ -462,7 +477,9 @@ local function RestoreMusic()
             local volume = state.baseMusicVolume
             state.baseMusicVolume = nil
             state.currentGain = 1
+            FableForeverDB.volume = volume
             SetCVarValue("Sound_MusicVolume", volume)
+            if ns.RefreshVolumeControl then ns.RefreshVolumeControl() end
         end
     end
 
@@ -496,12 +513,19 @@ local function DisableMusic()
 end
 
 local function SetMusicLevel(value)
-    FableForeverDB.volume = Clamp(value, 0, 1.5)
-    if state.fade and state.fade.to > 0 then
-        -- Keep the destination of an in-progress fade-in aligned with the
-        -- slider without interrupting its callback or a track transition.
-        state.fade.to = FableForeverDB.volume
-    elseif state.trackID then
+    FableForeverDB.volume = Clamp(value, 0, 1)
+    if state.baseMusicVolume == nil then
+        -- While the override is off, the add-on control mirrors and sets the
+        -- same Music CVar as WoW's own audio settings.
+        SetCVarValue("Sound_MusicVolume", FableForeverDB.volume)
+        return
+    end
+    if state.silent then return end
+    if state.fade then
+        -- Preserve an in-progress transition callback while changing the
+        -- destination of an active fade-in.
+        if state.fade.to > 0 then state.fade.to = FableForeverDB.volume end
+    elseif state.trackID and not state.silent then
         FadeTo(FableForeverDB.volume, 0.2)
     end
 end
@@ -604,7 +628,7 @@ local function GetStatus()
 end
 
 local function PrintHelp()
-    Chat("Commands: /fableforever (or /ff) [options] | on | off | toggle | status | next | volume 0-1.5 | fade 0-15 | silence 0-10 | combat on|off | questwin on|off")
+    Chat("Commands: /fableforever (or /ff) [options] | on | off | toggle | status | next | volume 0-100 | fade 0-15 | silence 0-10 | combat on|off | questwin on|off")
     Chat("Audio files belong in Interface\\AddOns\\FableForever\\Music\\.")
 end
 
@@ -636,11 +660,11 @@ local function HandleSlashCommand(message)
     elseif command == "volume" then
         local volume = tonumber(argument)
         if not volume then
-            Chat("Current Fable music level: " .. tostring(FableForeverDB.volume) .. " (relative to your WoW Music slider).")
+            Chat("Current Fable music level: " .. string.format("%.0f%%", FableForeverDB.volume * 100) .. ".")
             return
         end
-        SetMusicLevel(volume)
-        Chat("Fable music level set to " .. string.format("%.2f", FableForeverDB.volume) .. ".")
+        SetMusicLevel(volume / 100)
+        Chat("Fable music level set to " .. string.format("%.0f%%", FableForeverDB.volume * 100) .. ".")
     elseif command == "fade" then
         local duration = tonumber(argument)
         if not duration then
@@ -701,7 +725,11 @@ local function InitializeDatabase()
     FableForeverDB.fadeIn = Clamp(FableForeverDB.fadeIn, 0, 15)
     FableForeverDB.zoneDelay = Clamp(FableForeverDB.zoneDelay, 0, 5)
     FableForeverDB.silenceMinutes = Clamp(FableForeverDB.silenceMinutes, 0, 10)
-    FableForeverDB.volume = Clamp(FableForeverDB.volume, 0, 1.5)
+    FableForeverDB.volume = Clamp(FableForeverDB.volume, 0, 1)
+    local gameMusicVolume = tonumber(GetCVarValue("Sound_MusicVolume"))
+    if gameMusicVolume ~= nil then
+        FableForeverDB.volume = Clamp(gameMusicVolume, 0, 1)
+    end
     state.enabled = FableForeverDB.enabled
     if FableForeverDB.questWinSound then
         -- MuteSoundFile's mute list is session-local, so reapply the saved
@@ -768,7 +796,9 @@ frame:SetScript("OnEvent", function(_, event, ...)
                     local volume = state.baseMusicVolume
                     state.baseMusicVolume = nil
                     state.currentGain = 1
+                    FableForeverDB.volume = volume
                     SetCVarValue("Sound_MusicVolume", volume)
+                    if ns.RefreshVolumeControl then ns.RefreshVolumeControl() end
                 end
             else
                 QueueRefresh(0.1)
@@ -791,6 +821,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
             local volume = state.baseMusicVolume
             state.baseMusicVolume = nil
             state.currentGain = 1
+            FableForeverDB.volume = volume
             SetCVarValue("Sound_MusicVolume", volume)
         end
     end

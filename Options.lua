@@ -290,6 +290,7 @@ UpdateStatus = function()
 end
 
 local function RefreshControls()
+    if not panel then return end
     local settings = controller.GetSettings()
     if panel.enabledCheck then panel.enabledCheck:SetChecked(settings.enabled) end
     if panel.combatCheck then panel.combatCheck:SetChecked(settings.combatMusic) end
@@ -304,6 +305,17 @@ local function RefreshControls()
         end
     end
     UpdateStatus()
+end
+
+ns.RefreshVolumeControl = function()
+    if not panel or not panel:IsShown() then return end
+    local data = sliders.volume
+    local value = controller.GetSettings().volume
+    if not data or value == nil then return end
+    data.slider.suppressCallback = true
+    data.slider:SetValue(value)
+    data.slider.suppressCallback = false
+    data.valueText:SetText(FormatSliderValue("volume", value, data.decimals))
 end
 
 local function BuildPanel()
@@ -357,7 +369,7 @@ local function BuildPanel()
     panel.questWinCheck = CreateCheckbox("Replace WoW's quest-complete sound", "questWinSound", -171, controller.SetQuestWinSound)
     CreateSectionTitle("The music of Albion", -207)
 
-    CreateSlider("volume", "Fable music level", 0, 1.5, 0.05, 2, -238, controller.SetVolume)
+    CreateSlider("volume", "Fable music level", 0, 1, 0.05, 0, -238, controller.SetVolume)
     CreateSlider("fadeOut", "Fade out before changing a cue", 0, 15, 0.5, 1, -299, controller.SetFadeOut)
     CreateSlider("fadeIn", "Fade in after entering an area", 0, 15, 0.5, 1, -360, controller.SetFadeIn)
     CreateSlider("zoneDelay", "Wait for the zone change to settle", 0, 5, 0.1, 1, -421, controller.SetZoneDelay)
