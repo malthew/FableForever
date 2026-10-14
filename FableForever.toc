@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Fable Forever
 ## Notes: Client-side, zone-aware Fable music replacement for WoW: Forever.
-## Author: Local project
+## Author: malthew
 ## Version: 0.4.0
 ## SavedVariables: FableForeverDB
 
