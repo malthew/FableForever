@@ -304,23 +304,34 @@ local function RefreshControls()
             data.valueText:SetText(FormatSliderValue(key, value, data.decimals))
         end
     end
+    if statusFields.currentVolumeText then
+        local currentVolume = tonumber(settings.currentVolume) or 0
+        statusFields.currentVolumeText:SetText(FormatSliderValue("volume", currentVolume, 0))
+        statusFields.currentVolumeFill:SetWidth(statusFields.currentVolumeFillWidth * currentVolume)
+    end
     UpdateStatus()
 end
 
 ns.RefreshVolumeControl = function()
     if not panel or not panel:IsShown() then return end
     local data = sliders.volume
-    local value = controller.GetSettings().volume
+    local settings = controller.GetSettings()
+    local value = settings.volume
     if not data or value == nil then return end
     data.slider.suppressCallback = true
     data.slider:SetValue(value)
     data.slider.suppressCallback = false
     data.valueText:SetText(FormatSliderValue("volume", value, data.decimals))
+    if statusFields.currentVolumeText then
+        local currentVolume = tonumber(settings.currentVolume) or 0
+        statusFields.currentVolumeText:SetText(FormatSliderValue("volume", currentVolume, 0))
+        statusFields.currentVolumeFill:SetWidth(statusFields.currentVolumeFillWidth * currentVolume)
+    end
 end
 
 local function BuildPanel()
     panel = CreateFrame("Frame", "FableForeverOptionsFrame", UIParent, "BackdropTemplate")
-    panel:SetSize(620, 720)
+    panel:SetSize(620, 730)
     panel:SetPoint("CENTER")
     panel:SetFrameStrata("DIALOG")
     panel:SetClampedToScreen(true)
@@ -369,16 +380,41 @@ local function BuildPanel()
     panel.questWinCheck = CreateCheckbox("Replace WoW's quest-complete sound", "questWinSound", -171, controller.SetQuestWinSound)
     CreateSectionTitle("The music of Albion", -207)
 
-    CreateSlider("volume", "Fable music level", 0, 1, 0.05, 0, -238, controller.SetVolume)
-    CreateSlider("fadeOut", "Fade out before changing a cue", 0, 15, 0.5, 1, -299, controller.SetFadeOut)
-    CreateSlider("fadeIn", "Fade in after entering an area", 0, 15, 0.5, 1, -360, controller.SetFadeIn)
-    CreateSlider("zoneDelay", "Wait for the zone change to settle", 0, 5, 0.1, 1, -421, controller.SetZoneDelay)
-    CreateSlider("silenceMinutes", "Quiet time between tracks (minutes)", 0, 10, 0.5, 1, -482, controller.SetSilenceMinutes)
+    CreateSlider("volume", "Target music volume", 0, 1, 0.05, 0, -238, controller.SetVolume)
 
-    CreateSectionTitle("Where you are now", -530)
+    CreateLabel(panel, "GameFontHighlightSmall", "Current output", COLORS.ink,
+        "TOPLEFT", panel, "TOPLEFT", 39, -290)
+    statusFields.currentVolumeText = CreateLabel(panel, "GameFontNormal", "0%", COLORS.gold,
+        "TOPRIGHT", panel, "TOPRIGHT", -39, -290)
+    statusFields.currentVolumeText:SetWidth(92)
+    statusFields.currentVolumeText:SetJustifyH("CENTER")
+    local currentVolumeTrack = CreateFrame("Frame", nil, panel, "BackdropTemplate")
+    currentVolumeTrack:SetPoint("TOPLEFT", panel, "TOPLEFT", 151, -307)
+    currentVolumeTrack:SetSize(330, 10)
+    currentVolumeTrack:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        edgeSize = 6,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 },
+    })
+    currentVolumeTrack:SetBackdropColor(0.22, 0.14, 0.075, 0.9)
+    currentVolumeTrack:SetBackdropBorderColor(COLORS.goldSoft[1], COLORS.goldSoft[2], COLORS.goldSoft[3], 0.75)
+    statusFields.currentVolumeFill = currentVolumeTrack:CreateTexture(nil, "ARTWORK")
+    statusFields.currentVolumeFill:SetPoint("TOPLEFT", currentVolumeTrack, "TOPLEFT", 3, -3)
+    statusFields.currentVolumeFill:SetPoint("BOTTOMLEFT", currentVolumeTrack, "BOTTOMLEFT", 3, 3)
+    statusFields.currentVolumeFill:SetWidth(0)
+    statusFields.currentVolumeFill:SetColorTexture(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 0.95)
+    statusFields.currentVolumeFillWidth = 324
+
+    CreateSlider("fadeOut", "Fade out before changing a cue", 0, 15, 0.5, 1, -327, controller.SetFadeOut)
+    CreateSlider("fadeIn", "Fade in after entering an area", 0, 15, 0.5, 1, -383, controller.SetFadeIn)
+    CreateSlider("zoneDelay", "Wait for the zone change to settle", 0, 5, 0.1, 1, -439, controller.SetZoneDelay)
+    CreateSlider("silenceMinutes", "Quiet time between tracks (minutes)", 0, 10, 0.5, 1, -495, controller.SetSilenceMinutes)
+
+    CreateSectionTitle("Where you are now", -551)
     local statusCard = CreateFrame("Frame", nil, panel, "BackdropTemplate")
-    statusCard:SetPoint("TOPLEFT", panel, "TOPLEFT", 37, -550)
-    statusCard:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -37, -550)
+    statusCard:SetPoint("TOPLEFT", panel, "TOPLEFT", 37, -571)
+    statusCard:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -37, -571)
     statusCard:SetHeight(70)
     statusCard:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8X8",

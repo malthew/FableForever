@@ -37,9 +37,9 @@ If upgrading from the earlier **Fable OST** addon folder, remove `Interface\AddO
 
 ## Settings
 
-The settings window controls the zone music override, combat cues, quest-complete sound replacement, music level (0–100%), fade-out and fade-in durations, zone-change delay, and quiet time between automatic tracks. It also shows the current area, mood, and cue. **Next track** skips the quiet interlude while retaining the configured fade.
+The settings window controls the zone music override, combat cues, quest-complete sound replacement, target music volume (0–100%), fade-out and fade-in durations, zone-change delay, and quiet time between automatic tracks. A read-only current-output meter shows the live music level as fades run. It also shows the current area, mood, and cue. **Next track** skips the quiet interlude while retaining the configured fade.
 
-The Fable music level controls WoW's `Sound_MusicVolume` value directly on a 0–100% scale. The add-on fades this value during transitions and restores the saved game value when the override is disabled or on logout. Changes to the Music slider in WoW's own settings also update the add-on level. The add-on does not change `Sound_EnableMusic`.
+The target music volume is saved by the add-on and applied through WoW's `Sound_MusicVolume` value. This keeps the target intact if the client saves a temporary fade level during logout. The add-on fades the live value during transitions, and changes to WoW's Music slider also update the target. The add-on does not change `Sound_EnableMusic`.
 
 Automatic cues play once and then leave a quiet interlude (3 minutes by default; configurable from 0 to 10 minutes). A mood change or combat can start a cue early. The replacement quest-complete cue is optional and off by default.
 

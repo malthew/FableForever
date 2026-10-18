@@ -81,6 +81,9 @@ local function SetCVarValue(name, value)
     elseif SetCVar then
         SetCVar(name, stringValue)
     end
+    if name == "Sound_MusicVolume" and ns.RefreshVolumeControl then
+        ns.RefreshVolumeControl()
+    end
 end
 
 local function IsMusicEnabled()
@@ -101,9 +104,12 @@ end
 
 local function EnsureBaseVolume()
     if state.baseMusicVolume == nil then
+        local targetValue = tonumber(FableForeverDB and FableForeverDB.volume)
         local liveValue = tonumber(GetCVarValue("Sound_MusicVolume"))
-        state.baseMusicVolume = Clamp(liveValue or 0.4, 0, 1)
-        state.currentGain = state.baseMusicVolume
+        -- The saved target survives a logout even if the client persisted the
+        -- addon's temporary fade value (often zero) to its Music CVar.
+        state.baseMusicVolume = Clamp(targetValue or liveValue or 0.4, 0, 1)
+        state.currentGain = Clamp(liveValue or state.baseMusicVolume, 0, 1)
     end
 end
 
@@ -520,6 +526,7 @@ local function SetMusicLevel(value)
         SetCVarValue("Sound_MusicVolume", FableForeverDB.volume)
         return
     end
+    state.baseMusicVolume = FableForeverDB.volume
     if state.silent then return end
     if state.fade then
         -- Preserve an in-progress transition callback while changing the
@@ -589,6 +596,7 @@ ns.Controller = {
             questWinSound = FableForeverDB.questWinSound,
             silenceMinutes = FableForeverDB.silenceMinutes,
             volume = FableForeverDB.volume,
+            currentVolume = Clamp(tonumber(GetCVarValue("Sound_MusicVolume")) or 0, 0, 1),
             fadeIn = FableForeverDB.fadeIn,
             fadeOut = FableForeverDB.fadeOut,
             zoneDelay = FableForeverDB.zoneDelay,
@@ -711,6 +719,7 @@ SlashCmdList.FABLEFOREVER = HandleSlashCommand
 
 local function InitializeDatabase()
     FableForeverDB = FableForeverDB or {}
+    local savedVolume = tonumber(FableForeverDB.volume)
     for key, value in pairs(DEFAULTS) do
         if FableForeverDB[key] == nil then
             if type(value) == "table" then
@@ -725,11 +734,10 @@ local function InitializeDatabase()
     FableForeverDB.fadeIn = Clamp(FableForeverDB.fadeIn, 0, 15)
     FableForeverDB.zoneDelay = Clamp(FableForeverDB.zoneDelay, 0, 5)
     FableForeverDB.silenceMinutes = Clamp(FableForeverDB.silenceMinutes, 0, 10)
-    FableForeverDB.volume = Clamp(FableForeverDB.volume, 0, 1)
     local gameMusicVolume = tonumber(GetCVarValue("Sound_MusicVolume"))
-    if gameMusicVolume ~= nil then
-        FableForeverDB.volume = Clamp(gameMusicVolume, 0, 1)
-    end
+    -- Keep the addon's saved target across sessions. The live CVar may still
+    -- contain the zero written by the final fade before PLAYER_LOGOUT ran.
+    FableForeverDB.volume = Clamp(savedVolume or gameMusicVolume or DEFAULTS.volume, 0, 1)
     state.enabled = FableForeverDB.enabled
     if FableForeverDB.questWinSound then
         -- MuteSoundFile's mute list is session-local, so reapply the saved
